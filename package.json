@@ -1,0 +1,15 @@
+{
+  "name": "lattice-lens",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@notionhq/client": "^0.1.9",
+    "dotenv": "^10.0.0"
+  }
+}
