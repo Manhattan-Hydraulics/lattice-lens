@@ -38,28 +38,11 @@ async function getUserMentionPages(database, user) {
   return response.results;
 }
 
-// TODO Rip this out and just use getUserMentionPages.length (it's async)
-// Returns the number of times a user is mentioned in a database property.
-async function getUserMentionCount(database, user) {
-  const response = await notion.databases.query({
-    database_id: database,
-    filter: {
-      "property": "People",
-      "people": {
-        "contains": user.id,
-      },
-    },
-  });
-
-  return response.results.length;
-}
-
 // Create a new child page for an individual user.
 async function createUserPage(user, studio) {
-  const userProjectCount = await getUserMentionCount(
-    CLIENTS_DB,
-    user
-  );
+  let results = await getUserMentionPages(CLIENTS_DB, user);
+
+  const userProjectCount = results.length;
 
   const response = await notion.pages.create({
     parent: {
@@ -77,39 +60,43 @@ async function createUserPage(user, studio) {
       },
     },
   });
+
+  return response;
 }
 
 // Update the availability of a user on their child page.
 // TODO: Refactor this and rename to something more accurate
 async function updateAvailablity(user) {
-  const isUserAdded = await getUserMentionCount(MASTER_DB, user);
+  let userLensPages = await getUserMentionPages(MASTER_DB, user);
 
-  if (!isUserAdded) {
+  const userExistsInLensDB = userLensPages.length > 0;
+
+  if (userExistsInLensDB) {
+    // User already has a child page
+    const userProjectAssignments = await getUserMentionPages(
+      CLIENTS_DB,
+      user
+    );
+
+    // Loop through the child pages
+    userLensPages.forEach(async (page) => {
+      await notion.pages.update({
+        page_id: page.id,
+        properties: {
+          // Update the client project count
+          "Client Projects": {
+            "number": userProjectAssignments.length,
+          },
+        },
+      });
+    });
+  } else {
     // User has no child page
     studios.some((studio) => {
       // Figure out what studio they are in
       user.person.email.includes(studio.domain) &&
         // Create them a new page
         createUserPage(user, studio);
-    });
-  } else {
-    // User already has a child page
-    // Get the user's child pages
-    const pages = await getUserMentionPages(MASTER_DB, user);
-
-    const clientsCount = await getUserMentionCount(CLIENTS_DB, user);
-
-    // Loop through the child pages
-    pages.forEach(async (page) => {
-      await notion.pages.update({
-        page_id: page.id,
-        properties: {
-          // Update the client project count
-          "Client Projects": {
-            "number": clientsCount,
-          },
-        },
-      });
     });
   }
 }
