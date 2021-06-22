@@ -12,8 +12,9 @@ const MASTER_DB = process.env.MASTER_DB_ID;
 const SIDE_QUESTS_DB = process.env.SIDE_QUESTS_DB_ID;
 const CLIENTS_DB = process.env.CLIENTS_DB_ID;
 const PEOPLE_DB = process.env.PEOPLE_DB_ID;
+const PROJECT_TRACKER_DB = process.env.PROJECT_TRACKER_DB_ID;
 
-// Array of all studios.
+// Array of all studios. Can be used to assign a "Studio" property based on user email address.
 // The `name` key is mapped to a property value in Notion. Do not change.
 // The `domain` key is used to figure out which studio a user is in.
 // TODO: Figure out how to tell if a user is in Hydro without a hydro email.
@@ -91,7 +92,7 @@ async function updateAvailablity() {
     people.forEach(async (person) => {
       // Get all the projects mentioning a user from the project tracker
       const projects = await getUserMentionPages(
-        "92e952f023874b91841e6ba4a23152c2",
+        PROJECT_TRACKER_DB,
         person
       );
 
