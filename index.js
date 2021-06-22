@@ -8,6 +8,10 @@ const notion = new Client({
   auth: process.env.NOTION_TOKEN,
 });
 
+const MASTER_DB = process.env.MASTER_DB_ID;
+const SIDE_QUESTS_DB = process.env.SIDE_QUESTS_DB_ID;
+const CLIENTS_DB = process.env.CLIENTS_DB_ID;
+
 // Array of all studios.
 // The `name` key is mapped to a property value in Notion. Do not change.
 // The `domain` key is used to figure out which studio a user is in.
@@ -19,23 +23,10 @@ var studios = [
   { name: "Index", domain: "index-space.org" },
 ];
 
-// TODO: Turn into env variables, fine for now
-var databases = {
-  clients: {
-    id: "5e0c70f7e9e34658a9ea779d24a3f591",
-  },
-  sideQuests: {
-    id: "ca95ae82ccc3478399a7d2723ee9e1a5",
-  },
-  latticeLens: {
-    id: "d6aa465c43414bafb724d35d3525f024",
-  },
-};
-
 // Filter a DB and return the pages a user is mentioned in.
 async function getUserMentionPages(database, user) {
   const response = await notion.databases.query({
-    database_id: database.id,
+    database_id: database,
     filter: {
       "property": "People",
       "people": {
@@ -51,7 +42,7 @@ async function getUserMentionPages(database, user) {
 // Returns the number of times a user is mentioned in a database property.
 async function getUserMentionCount(database, user) {
   const response = await notion.databases.query({
-    database_id: database.id,
+    database_id: database,
     filter: {
       "property": "People",
       "people": {
@@ -66,7 +57,7 @@ async function getUserMentionCount(database, user) {
 // Create a new child page for an individual user.
 async function createUserPage(user, studio) {
   const userProjectCount = await getUserMentionCount(
-    databases.clients,
+    CLIENTS_DB,
     user
   );
 
@@ -91,10 +82,7 @@ async function createUserPage(user, studio) {
 // Update the availability of a user on their child page.
 // TODO: Refactor this and rename to something more accurate
 async function updateAvailablity(user) {
-  const isUserAdded = await getUserMentionCount(
-    databases.latticeLens,
-    user
-  );
+  const isUserAdded = await getUserMentionCount(MASTER_DB, user);
 
   if (!isUserAdded) {
     // User has no child page
@@ -107,15 +95,9 @@ async function updateAvailablity(user) {
   } else {
     // User already has a child page
     // Get the user's child pages
-    const pages = await getUserMentionPages(
-      databases.latticeLens,
-      user
-    );
+    const pages = await getUserMentionPages(MASTER_DB, user);
 
-    const clientsCount = await getUserMentionCount(
-      databases.clients,
-      user
-    );
+    const clientsCount = await getUserMentionCount(CLIENTS_DB, user);
 
     // Loop through the child pages
     pages.forEach(async (page) => {
