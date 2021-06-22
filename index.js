@@ -11,6 +11,7 @@ const notion = new Client({
 const MASTER_DB = process.env.MASTER_DB_ID;
 const SIDE_QUESTS_DB = process.env.SIDE_QUESTS_DB_ID;
 const CLIENTS_DB = process.env.CLIENTS_DB_ID;
+const PEOPLE_DB = process.env.PEOPLE_DB_ID;
 
 // Array of all studios.
 // The `name` key is mapped to a property value in Notion. Do not change.
@@ -38,6 +39,15 @@ async function getUserMentionPages(database, user) {
   return response.results;
 }
 
+// Get all people from the Operating Manuals table
+async function getOperatingManualEntries() {
+  const response = await notion.databases.query({
+    database_id: PEOPLE_DB,
+  });
+
+  return response;
+}
+
 // Create a new child page for an individual user.
 async function createUserPage(user, studio) {
   let results = await getUserMentionPages(CLIENTS_DB, user);
@@ -46,7 +56,7 @@ async function createUserPage(user, studio) {
 
   const response = await notion.pages.create({
     parent: {
-      database_id: process.env.DATABASE_ID,
+      database_id: MASTER_DB,
     },
     properties: {
       "People": {
@@ -64,49 +74,72 @@ async function createUserPage(user, studio) {
   return response;
 }
 
-// Update the availability of a user on their child page.
-// TODO: Refactor this and rename to something more accurate
-async function updateAvailablity(user) {
-  let userLensPages = await getUserMentionPages(MASTER_DB, user);
+// Update availability and projects of all users
+async function updateAvailablity() {
+  let projectEndDates = [];
+  let estAvailableDate;
 
-  const userExistsInLensDB = userLensPages.length > 0;
+  // Get all entries from the IC table
+  // TODO: Swap this out with PEOPLE_DB (our Operating Manual table)
+  const entries = await notion.databases.query({
+    database_id: MASTER_DB,
+  });
 
-  if (userExistsInLensDB) {
-    // User already has a child page
-    const userProjectAssignments = await getUserMentionPages(
-      CLIENTS_DB,
-      user
-    );
+  entries.results.forEach(async (entry) => {
+    const people = entry.properties.People.people; // Get the person property values
 
-    // Loop through the child pages
-    userLensPages.forEach(async (page) => {
-      await notion.pages.update({
-        page_id: page.id,
-        properties: {
-          // Update the client project count
-          "Client Projects": {
-            "number": userProjectAssignments.length,
+    people.forEach(async (person) => {
+      // Get all the projects mentioning a user from the project tracker
+      const projects = await getUserMentionPages(
+        "92e952f023874b91841e6ba4a23152c2",
+        person
+      );
+
+      // If they have any projects assigned...
+      if (projects.length > 0) {
+        projects.forEach(async (project) => {
+          // Get the end date from the est. project timeline
+          let endDate = new Date(
+            project.properties["Est Timeline"].date.end
+          );
+
+          // Calculate the latest end date of a person's projects
+          if (endDate) {
+            projectEndDates.push(endDate);
+            estAvailableDate = new Date(Math.max(...projectEndDates));
+          }
+        });
+
+        await notion.pages.update({
+          page_id: entry.id,
+          properties: {
+            // Update the client project count
+            "Projects": {
+              "relation": [...projects],
+            },
+            // Update their next est. availability date
+            "Est Available Date": {
+              "date": {
+                "start": estAvailableDate.toISOString().substr(0, 10),
+              },
+            },
           },
-        },
-      });
+        });
+      }
     });
-  } else {
-    // User has no child page
-    studios.some((studio) => {
-      // Figure out what studio they are in
-      user.person.email.includes(studio.domain) &&
-        // Create them a new page
-        createUserPage(user, studio);
-    });
-  }
+  });
 }
 
 // Runs the entire script at runtime.
 (async () => {
-  const response = await notion.users.list();
-  response.results.forEach((user) => {
-    if (user.type === "person") {
-      updateAvailablity(user);
-    }
-  });
+  // const response = await notion.users.list();
+  // response.results.forEach((user) => {
+  //   if (user.type === "person") {
+  //     updateAvailablity(user);
+  //   }
+  // });
+
+  // getOperatingManualEntries()
+
+  await updateAvailablity();
 })();
