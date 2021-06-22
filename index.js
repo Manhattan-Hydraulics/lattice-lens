@@ -49,6 +49,11 @@ async function getOperatingManualEntries() {
   return response;
 }
 
+async function getAllNotionUsers() {
+  const response = await notion.users.list();
+  return response.results.filter((user) => user.type === "person");
+}
+
 // Create a new child page for an individual user.
 async function createUserPage(user, studio) {
   let results = await getUserMentionPages(CLIENTS_DB, user);
@@ -133,14 +138,5 @@ async function updateAvailablity() {
 
 // Runs the entire script at runtime.
 (async () => {
-  // const response = await notion.users.list();
-  // response.results.forEach((user) => {
-  //   if (user.type === "person") {
-  //     updateAvailablity(user);
-  //   }
-  // });
-
-  // getOperatingManualEntries()
-
   await updateAvailablity();
 })();
