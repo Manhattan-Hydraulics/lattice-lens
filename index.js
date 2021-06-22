@@ -8,6 +8,10 @@ const notion = new Client({
   auth: process.env.NOTION_TOKEN,
 });
 
+// Array of all studios.
+// The `name` key is mapped to a property value in Notion. Do not change.
+// The `domain` key is used to figure out which studio a user is in.
+// TODO: Figure out how to tell if a user is in Hydro without a hydro email.
 var studios = [
   { name: "Sanctuary", domain: "sanctuary.computer" },
   { name: "Hydraulics", domain: "hydraulics.nyc" },
@@ -15,6 +19,7 @@ var studios = [
   { name: "Index", domain: "index-space.org" },
 ];
 
+// TODO: Turn into env variables, fine for now
 var databases = {
   clients: {
     id: "5e0c70f7e9e34658a9ea779d24a3f591",
@@ -27,6 +32,7 @@ var databases = {
   },
 };
 
+// Filter a DB and return the pages a user is mentioned in.
 async function getUserMentionPages(database, user) {
   const response = await notion.databases.query({
     database_id: database.id,
@@ -41,6 +47,8 @@ async function getUserMentionPages(database, user) {
   return response.results;
 }
 
+// TODO Rip this out and just use getUserMentionPages.length (it's async)
+// Returns the number of times a user is mentioned in a database property.
 async function getUserMentionCount(database, user) {
   const response = await notion.databases.query({
     database_id: database.id,
@@ -55,6 +63,7 @@ async function getUserMentionCount(database, user) {
   return response.results.length;
 }
 
+// Create a new child page for an individual user.
 async function createUserPage(user, studio) {
   const userProjectCount = await getUserMentionCount(
     databases.clients,
@@ -79,6 +88,8 @@ async function createUserPage(user, studio) {
   });
 }
 
+// Update the availability of a user on their child page.
+// TODO: Refactor this and rename to something more accurate
 async function updateAvailablity(user) {
   const isUserAdded = await getUserMentionCount(
     databases.latticeLens,
@@ -121,6 +132,7 @@ async function updateAvailablity(user) {
   }
 }
 
+// Runs the entire script at runtime.
 (async () => {
   const response = await notion.users.list();
   response.results.forEach((user) => {
@@ -129,34 +141,3 @@ async function updateAvailablity(user) {
     }
   });
 })();
-
-// (async () => {
-//   const response = await notion.users.list();
-//   response.results.forEach(async (user) => {
-//     const counts = await getUserMentionCount(
-//       databases.sideQuests,
-//       user
-//     );
-//   });
-// })();
-
-// (async () => {
-//   const pageId = "0b67f67f5c4e4421a3b34ab5d9e2bd51";
-
-//   const userProjectCount = await getUserMentionCount(
-//     databases.clients,
-//     {
-//       id: "bb8041b5-17b1-4c89-990a-54a8059920b6",
-//     }
-//   );
-
-//   const response = await notion.pages.update({
-//     page_id: pageId,
-//     properties: {
-//       "Client Projects": {
-//         "number": userProjectCount,
-//       },
-//     },
-//   });
-//   console.log(response);
-// })();
